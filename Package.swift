@@ -39,14 +39,20 @@ import PackageDescription
 //
 // Zero package dependencies (Foundation plus the CryptoKit system
 // framework for the SHA-256 canonical digests behind the compatibility
-// keys). Swift 5 language mode keeps the moved code byte-behaviorally
-// identical (AgentRuntimeKit / PromptAssemblyKit / ApplyEditsKit /
-// CodexRuntimeKit / RepoPromptCore promoted-target precedent).
+// keys). Swift 6 language mode with StrictConcurrency: the package is
+// value types and pure policy, so full data-race checking is the correct
+// contract for it — the only reference type is the lock-serialized
+// ClaudeLifecycleDriftRecorder.
+let swiftSettings: [SwiftSetting] = [
+    .swiftLanguageMode(.v6),
+    .enableExperimentalFeature("StrictConcurrency")
+]
+
 let package = Package(
     name: "ClaudeRuntimeKit",
     platforms: [
-        .macOS(.v14),
-        .iOS(.v17)
+        .macOS("27.0"),
+        .iOS("27.0")
     ],
     products: [
         .library(name: "ClaudeRuntimeKit", targets: ["ClaudeRuntimeKit"])
@@ -54,12 +60,12 @@ let package = Package(
     targets: [
         .target(
             name: "ClaudeRuntimeKit",
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: swiftSettings
         ),
         .testTarget(
             name: "ClaudeRuntimeKitTests",
             dependencies: ["ClaudeRuntimeKit"],
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: swiftSettings
         )
     ]
 )
