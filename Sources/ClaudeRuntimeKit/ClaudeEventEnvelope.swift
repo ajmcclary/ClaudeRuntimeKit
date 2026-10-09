@@ -1,16 +1,21 @@
 import Foundation
 
 /// Lossless, per-line decode of a Claude NDJSON stream line (Program A /
-/// Slice 1). App-local for now.
+/// Slice 1). Its immutable bytes and identity fields are safe to transfer.
 ///
 /// The envelope always preserves the original `rawBytes`. When the line is a
 /// JSON object it also exposes the parsed `json` plus stable identity fields
 /// used for routing, diagnostics, and (later) semantic normalization. Non-object
 /// lines are non-decodable (`json == nil`) but still carry their raw bytes so a
 /// malformed-line diagnostic can be produced without dropping evidence.
-public struct ClaudeEventEnvelope {
+public struct ClaudeEventEnvelope: Sendable {
 	public let rawBytes: Data
-	public let json: [String: Any]?
+	private let parsedJSONData: Data?
+	/// A fresh Foundation view of immutable JSON bytes; no shared reference graph.
+	public var json: [String: Any]? {
+		guard let parsedJSONData else { return nil }
+		return (try? JSONSerialization.jsonObject(with: parsedJSONData)) as? [String: Any]
+	}
 	public let type: String?
 	public let subtype: String?
 	public let sessionID: String?
@@ -20,7 +25,7 @@ public struct ClaudeEventEnvelope {
 	public let timestamp: String?
 	public let binaryVersion: String?
 
-	public var isDecodable: Bool { json != nil }
+	public var isDecodable: Bool { parsedJSONData != nil }
 
 	public static func decode(line: Data) -> ClaudeEventEnvelope {
 		guard
@@ -54,6 +59,23 @@ public struct ClaudeEventEnvelope {
 			timestamp: timestamp(in: object),
 			binaryVersion: firstString(object, ["version", "cli_version", "claude_version", "claudeVersion"])
 		)
+	}
+
+	private init(
+		rawBytes: Data, json: [String: Any]?, type: String?, subtype: String?,
+		sessionID: String?, requestID: String?, parentToolUseID: String?,
+		messageID: String?, timestamp: String?, binaryVersion: String?
+	) {
+		self.rawBytes = rawBytes
+		self.parsedJSONData = json == nil ? nil : Self.trimmedASCIIWhitespace(rawBytes)
+		self.type = type
+		self.subtype = subtype
+		self.sessionID = sessionID
+		self.requestID = requestID
+		self.parentToolUseID = parentToolUseID
+		self.messageID = messageID
+		self.timestamp = timestamp
+		self.binaryVersion = binaryVersion
 	}
 
 	// MARK: - Field extraction

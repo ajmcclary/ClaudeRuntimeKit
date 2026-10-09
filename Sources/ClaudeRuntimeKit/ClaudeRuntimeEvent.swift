@@ -15,7 +15,7 @@ import Foundation
 ///
 /// The type carries `UUID?` rather than `String?` precisely so that
 /// re-derivation is unrepresentable: there is no string left to parse.
-public enum ClaudeRuntimeEvent: Equatable {
+public enum ClaudeRuntimeEvent: Equatable, Sendable {
 	case systemInit(SystemInit)
 	case assistantText(AssistantText)
 	case toolUse(ToolUse)
@@ -56,7 +56,7 @@ public enum ClaudeRuntimeEvent: Equatable {
 	/// "deduplication" that silently drops user-visible output.
 	case stream(StreamEvent)
 
-	public struct SystemInit: Equatable {
+	public struct SystemInit: Equatable, Sendable {
 		public var sessionID: String?
 		public var model: String?
 		public var permissionMode: String?
@@ -71,7 +71,7 @@ public enum ClaudeRuntimeEvent: Equatable {
 	/// no judgement about whether a boundary ends a TURN. Turn completion is the
 	/// app's authority via the lifecycle reconciler; a `message_stop` here is a
 	/// message boundary the provider reported, nothing more.
-	public enum StreamEvent: Equatable {
+	public enum StreamEvent: Equatable, Sendable {
 		/// One `text_delta` chunk. Never merged with its neighbours: the results
 		/// lane emits one `content` per chunk, and joining them would change
 		/// observable output.
@@ -97,7 +97,7 @@ public enum ClaudeRuntimeEvent: Equatable {
 		)
 	}
 
-	public struct AssistantText: Equatable {
+	public struct AssistantText: Equatable, Sendable {
 		public var messageID: String?
 		public var text: String
 		public var extra: [String: ClaudeJSONValue]
@@ -105,8 +105,8 @@ public enum ClaudeRuntimeEvent: Equatable {
 			self.messageID = messageID; self.text = text; self.extra = extra
 		}
 	}
-	public enum ToolUseSource: Equatable { case streamed, complete }
-	public struct ToolUse: Equatable {
+	public enum ToolUseSource: Equatable, Sendable { case streamed, complete }
+	public struct ToolUse: Equatable, Sendable {
 		public var messageID: String?
 		public var blockIndex: Int?
 		public var toolID: String?
@@ -124,7 +124,7 @@ public enum ClaudeRuntimeEvent: Equatable {
 			self.name = name; self.input = input; self.source = source; self.extra = extra
 		}
 	}
-	public struct ResultEvent: Equatable {
+	public struct ResultEvent: Equatable, Sendable {
 		public var sessionID: String?
 		public var subtype: String?
 		public var isError: Bool
@@ -157,7 +157,7 @@ public enum ClaudeRuntimeEvent: Equatable {
 	/// breakdown — the provider-neutral `AIStreamResult` deliberately keeps only
 	/// the pre-summed aggregate, so this is the only place cache-creation and
 	/// cache-read survive as distinct figures.
-	public struct UsageEvent: Equatable {
+	public struct UsageEvent: Equatable, Sendable {
 		public var identity: ClaudeUsageIdentity
 		public var scope: ClaudeUsageScope
 		public var breakdown: ClaudeUsageBreakdown
@@ -183,13 +183,13 @@ public enum ClaudeRuntimeEvent: Equatable {
 	// MARK: - F2.5 payloads
 
 	/// Child / subagent lifecycle.
-	public enum TaskEvent: Equatable {
+	public enum TaskEvent: Equatable, Sendable {
 		case started(taskID: String?, description: String?, extra: [String: ClaudeJSONValue])
 		case notification(taskID: String?, status: String?, summary: String?, extra: [String: ClaudeJSONValue])
 		case progress(taskID: String?, fragments: [String], extra: [String: ClaudeJSONValue])
 	}
 
-	public enum ToolEvent: Equatable {
+	public enum ToolEvent: Equatable, Sendable {
 		/// `tool_use_summary`. The provider's summary text, unjoined.
 		///
 		/// Carries the stamped `invocationID` even though the legacy lane's `system`
@@ -200,14 +200,14 @@ public enum ClaudeRuntimeEvent: Equatable {
 		case summary(toolUseID: String?, invocationID: UUID?, summary: String, extra: [String: ClaudeJSONValue])
 	}
 
-	public enum RuntimeEvent: Equatable {
+	public enum RuntimeEvent: Equatable, Sendable {
 		/// `session_state_changed`. The state verbatim, lowercased by the reader.
 		case sessionStateChanged(state: String, extra: [String: ClaudeJSONValue])
 		/// `compact_boundary`.
 		case compactBoundary(trigger: String?, preTokens: Int?, extra: [String: ClaudeJSONValue])
 	}
 
-	public enum TelemetryEvent: Equatable {
+	public enum TelemetryEvent: Equatable, Sendable {
 		/// `rate_limit_event`. `status` is carried verbatim INCLUDING the routine
 		/// "allowed" case — suppression is a projection decision, not a decoding
 		/// one, so the fact is not lost before anyone can see it.
@@ -238,7 +238,7 @@ public enum ClaudeRuntimeEvent: Equatable {
 	/// phrase "Compacting context". That substitution is a legacy spelling, so it
 	/// lives in the projection — core storing the rewritten phrase would make the
 	/// normalized lane unable to tell which status the provider actually sent.
-	public struct StatusEvent: Equatable {
+	public struct StatusEvent: Equatable, Sendable {
 		public var status: String?
 		public var extra: [String: ClaudeJSONValue]
 		public init(status: String?, extra: [String: ClaudeJSONValue]) {
@@ -248,7 +248,7 @@ public enum ClaudeRuntimeEvent: Equatable {
 
 	/// A provider-reported error. Named `failure` because `error` collides with
 	/// the Swift error vocabulary at call sites.
-	public struct FailureEvent: Equatable {
+	public struct FailureEvent: Equatable, Sendable {
 		public var message: String
 		public var extra: [String: ClaudeJSONValue]
 		public init(message: String, extra: [String: ClaudeJSONValue]) {
@@ -256,7 +256,7 @@ public enum ClaudeRuntimeEvent: Equatable {
 		}
 	}
 
-	public struct ToolResultEvent: Equatable {
+	public struct ToolResultEvent: Equatable, Sendable {
 		public var toolUseID: String?
 		public var toolName: String?
 		/// STAMPED invocation identity — see `ClaudeRuntimeEvent` type note. This was
@@ -277,7 +277,7 @@ public enum ClaudeRuntimeEvent: Equatable {
 		}
 	}
 
-	public struct ToolProgressEvent: Equatable {
+	public struct ToolProgressEvent: Equatable, Sendable {
 		public var toolUseID: String?
 		/// STAMPED invocation identity. As with `.tool(.summary)`, the legacy
 		/// `tool_progress` result carries no invocation id; core keeps the fact and

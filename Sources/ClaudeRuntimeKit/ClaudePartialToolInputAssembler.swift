@@ -12,7 +12,7 @@ import Foundation
 /// - block stop -> `finishBlock` removes that one block;
 /// - message stop -> `resetMessage` removes all blocks for that message;
 /// - result / new message generation -> `resetAll`.
-public struct ClaudePartialToolInputAssembler {
+public struct ClaudePartialToolInputAssembler: Sendable {
 	public struct AssembledToolInput {
 		public let messageID: String?
 		public let blockIndex: Int
@@ -33,12 +33,12 @@ public struct ClaudePartialToolInputAssembler {
 		)
 	}
 
-	private struct BlockKey: Hashable {
+	private struct BlockKey: Hashable, Sendable {
 		let messageID: String?
 		let index: Int
 	}
 
-	private struct BlockState {
+	private struct BlockState: Sendable {
 		var toolUseID: String?
 		var toolName: String?
 		var buffer: String

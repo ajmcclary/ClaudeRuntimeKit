@@ -7,8 +7,8 @@ import Foundation
 /// payload content), redacted by key, and never carry secrets in `summary`.
 /// They are diagnostic attachments only — never canonical transcript content
 /// and never auto-converted to user-facing errors (controller policy).
-public struct ClaudeRuntimeDiagnostic {
-	public enum Kind: String {
+public struct ClaudeRuntimeDiagnostic: Sendable {
+	public enum Kind: String, Sendable {
 		case unknownEvent
 		case malformedKnownEvent
 		case malformedToolInput
@@ -24,8 +24,20 @@ public struct ClaudeRuntimeDiagnostic {
 	public let summary: String
 	/// Structurally redacted parsed payload, or nil when there is no JSON object
 	/// to redact (malformed line / malformed tool-input buffer).
-	public let redactedPayload: [String: Any]?
+	private let redactedJSONData: Data?
+	public var redactedPayload: [String: Any]? {
+		guard let redactedJSONData else { return nil }
+		return (try? JSONSerialization.jsonObject(with: redactedJSONData)) as? [String: Any]
+	}
 	public let rawByteCount: Int
+
+	private init(kind: Kind, fingerprint: String, summary: String, redactedPayload: [String: Any]?, rawByteCount: Int) {
+		self.kind = kind
+		self.fingerprint = fingerprint
+		self.summary = summary
+		self.redactedJSONData = redactedPayload.flatMap { try? JSONSerialization.data(withJSONObject: $0) }
+		self.rawByteCount = rawByteCount
+	}
 
 	// MARK: - Factories
 
@@ -95,7 +107,7 @@ public struct ClaudeRuntimeDiagnostic {
 /// Counts are complete (keyed by the coarse, low-cardinality fingerprint);
 /// samples are bounded to `maxSamples` distinct fingerprints, first-seen. The
 /// store lives outside the transcript/persistence path entirely.
-public struct ClaudeRuntimeDiagnosticAccumulator {
+public struct ClaudeRuntimeDiagnosticAccumulator: Sendable {
 	public let maxSamples: Int
 	public private(set) var totalCount = 0
 	public private(set) var countsByFingerprint: [String: Int] = [:]
